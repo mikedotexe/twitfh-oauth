@@ -44,7 +44,7 @@ async function getAppAccessToken() {
   return appToken.token;
 }
 
-async function getPlaybackToken(channel, bearer) {
+async function getPlaybackToken(channel) {
   const payload = {
     operationName: 'PlaybackAccessToken',
     extensions: {
@@ -62,17 +62,21 @@ async function getPlaybackToken(channel, bearer) {
     }
   };
 
+  // Twitch GQL for playback tokens only needs Client-ID, no Bearer token
   const r = await fetch('https://gql.twitch.tv/gql', {
     method: 'POST',
     headers: {
       'Client-ID': TWITCH_CLIENT_ID,
-      'Authorization': `Bearer ${bearer}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
   });
 
-  if (!r.ok) throw new Error(`gql ${r.status}`);
+  if (!r.ok) {
+    const errorText = await r.text();
+    throw new Error(`gql ${r.status}: ${errorText}`);
+  }
+
   const j = await r.json();
   const tok = j?.data?.streamPlaybackAccessToken || j?.data?.streamAccessToken;
   if (!tok?.signature || !tok?.value) return null;
@@ -101,8 +105,8 @@ app.get('/hls', async (c) => {
       return c.json({ error: 'channel required' }, 400);
     }
 
-    const bearer = await getAppAccessToken();
-    const pt = await getPlaybackToken(channel, bearer);
+    // We don't need app token for playback - GQL only needs Client-ID
+    const pt = await getPlaybackToken(channel);
 
     if (!pt) {
       return c.json({ error: 'offline or no token' }, 404);
@@ -112,7 +116,12 @@ app.get('/hls', async (c) => {
     return c.json({ url });
   } catch (e) {
     console.error('HLS error:', e.message);
-    return c.json({ error: 'server error' }, 500);
+    // Return detailed error for debugging
+    return c.json({
+      error: 'server error',
+      details: e.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : e.stack
+    }, 500);
   }
 });
 
