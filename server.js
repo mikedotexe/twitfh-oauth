@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 3000;
 const GQL_CLIENT_ID = (process.env.GQL_CLIENT_ID || 'kimne78kx3ncx6brgo4mv6wki5h1ko').trim();
 
 // Your registered Twitch app credentials for Helix API (metadata)
-const HELIX_CLIENT_ID = (process.env.TWITCH_CLIENT_ID || '').trim();
-const HELIX_CLIENT_SECRET = (process.env.TWITCH_CLIENT_SECRET || '').trim();
+const TWITCH_CLIENT_ID = (process.env.TWITCH_CLIENT_ID || '').trim();
+const TWITCH_CLIENT_SECRET = (process.env.TWITCH_CLIENT_SECRET || '').trim();
 
 const app = new Hono();
 
@@ -23,7 +23,7 @@ let helixAppToken = null; // { token, expiresAt }
 
 // Get Helix API app access token
 async function getHelixAppToken() {
-  if (!HELIX_CLIENT_ID || !HELIX_CLIENT_SECRET) {
+  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
     throw new Error('TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET required for Helix API');
   }
 
@@ -31,8 +31,8 @@ async function getHelixAppToken() {
   if (helixAppToken && now < helixAppToken.expiresAt - 60_000) return helixAppToken.token;
 
   const body = new URLSearchParams({
-    client_id: HELIX_CLIENT_ID,
-    client_secret: HELIX_CLIENT_SECRET,
+    client_id: TWITCH_CLIENT_ID,
+    client_secret: TWITCH_CLIENT_SECRET,
     grant_type: 'client_credentials'
   });
 
@@ -65,7 +65,7 @@ async function callHelix(endpoint, params = {}) {
 
   const r = await fetch(url, {
     headers: {
-      'Client-ID': HELIX_CLIENT_ID,
+      'Client-ID': TWITCH_CLIENT_ID,
       'Authorization': `Bearer ${token}`
     }
   });
@@ -346,7 +346,7 @@ app.get('/oauth/callback', (c) => {
 app.get('/', (c) => {
   return c.json({
     status: 'ok',
-    helix_configured: !!(HELIX_CLIENT_ID && HELIX_CLIENT_SECRET),
+    helix_configured: !!(TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET),
     gql_enabled: true,
     endpoints: {
       channels: '/api/channels?logins=gorgc,dota2ti,admiralbulldog',
@@ -363,12 +363,13 @@ console.log(`
 ║  Twitch Proxy Server                                      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  Local:  http://localhost:${PORT}                           ║
-║  Status: ${TWITCH_CLIENT_ID ? '✓ Configured' : '⚠ Missing credentials'}                              ║
+║  Helix:  ${TWITCH_CLIENT_ID ? '✓ Configured' : '⚠ Missing credentials'}                              ║
+║  GQL:    ✓ Using public Client-ID                        ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Next Steps:                                              ║
-║  1. Start ngrok or cloudflared tunnel                     ║
-║  2. Use HTTPS URL for Twitch OAuth redirect               ║
-║  3. Add credentials to .env and restart                   ║
+║  Endpoints:                                               ║
+║  • GET /api/channels?logins=...                           ║
+║  • GET /api/videos/:channel                               ║
+║  • GET /hls?channel=... OR ?vod=...                       ║
 ╚═══════════════════════════════════════════════════════════╝
 `);
 
