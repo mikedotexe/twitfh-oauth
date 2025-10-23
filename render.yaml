@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: twitch-proxy
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run dev
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+    healthCheckPath: /
